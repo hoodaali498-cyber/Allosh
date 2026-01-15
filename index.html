@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1a1a1a">
+    
+    <title>لعبة البطل الصغير ⚽</title>
+    
+    <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22لعبة%20البطل%20الصغير%22,%22short_name%22:%22كرتي%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22#1a1a1a%22,%22theme_color%22:%22#2ecc71%22,%22icons%22:[{%22src%22:%22https://d.top4top.io/p_3667o5q740.png%22,%22sizes%22:%22512x512%22,%22type%22:%22image/png%22}]}">
+
+    <style>
+        :root {
+            --primary: #2ecc71;
+            --accent: #f1c40f;
+            --glass: rgba(255, 255, 255, 0.1);
+        }
+
+        body { 
+            background: #1a1a1a;
+            background-image: url('https://i.top4top.io/p_3667uz9mr0.png');
+            background-size: cover;
+            background-position: center;
+            color: white; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; overflow: hidden; touch-action: none;
+            user-select: none; -webkit-user-select: none;
+        }
+
+        /* زر التثبيت الخاص */
+        #install-btn {
+            position: fixed; top: 10px; left: 10px; z-index: 1000;
+            display: none; background: var(--accent); color: black;
+            border: none; padding: 8px 15px; border-radius: 20px;
+            font-weight: bold; font-size: 0.8rem; cursor: pointer;
+        }
+
+        .header { 
+            display: flex; justify-content: space-around; align-items: center;
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(10px);
+            padding: 15px; border-bottom: 2px solid var(--primary);
+            position: relative; z-index: 10;
+        }
+
+        .stat-box { text-align: center; }
+        .stat-label { font-size: 0.7rem; color: #ccc; }
+        .stat-value { font-size: 1.2rem; font-weight: bold; color: var(--accent); }
+
+        #game-container { 
+            width: 100vw; height: calc(100vh - 80px); position: relative; 
+        }
+        
+        #ball { 
+            width: 110px; height: 110px; 
+            background-image: url('https://d.top4top.io/p_3667o5q740.png');
+            background-size: cover;
+            position: absolute; cursor: pointer;
+            z-index: 5; border-radius: 50%;
+        }
+
+        #shadow {
+            width: 80px; height: 15px; background: rgba(0,0,0,0.3);
+            border-radius: 50%; position: absolute; bottom: 10px;
+            filter: blur(5px); transform: translateX(-50%); z-index: 1;
+        }
+        
+        #ground { 
+            position: absolute; bottom: 0; width: 100%; height: 5px; 
+            background: var(--primary);
+        }
+
+        .modal { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+            display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; z-index: 100; 
+        }
+
+        .modal-content {
+            background: var(--glass); padding: 30px; border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.2); text-align: center;
+            max-width: 80%;
+        }
+        
+        .btn-main { 
+            padding: 15px 40px; border: none; border-radius: 50px; 
+            background: var(--primary); color: white;
+            font-weight: bold; font-size: 1.3rem; margin-top: 20px;
+        }
+
+        .hit-effect {
+            position: absolute; pointer-events: none;
+            color: var(--accent); font-weight: bold; font-size: 2rem;
+            animation: floatUp 0.8s forwards;
+        }
+
+        @keyframes floatUp {
+            from { transform: translateY(0); opacity: 1; }
+            to { transform: translateY(-50px); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <button id="install-btn">تثبيت اللعبة 📲</button>
+
+    <div class="header">
+        <div class="stat-box">
+            <div class="stat-label">المرحلة</div>
+            <div id="lvl-display" class="stat-value">1</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">الهدف</div>
+            <div id="target-display" class="stat-value">10</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">النقاط</div>
+            <div id="score-display" class="stat-value">0</div>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <div id="shadow"></div>
+        <div id="ball"></div>
+        <div id="ground"></div>
+    </div>
+
+    <div id="overlay" class="modal">
+        <div class="modal-content">
+            <h1 id="title" style="color: var(--accent);">لعبة البطل الصغير ⚽</h1>
+            <p id="desc">المس الكرة لكي لا تقع!</p>
+            <button class="btn-main" onclick="prepareGame()">هيا نلعب!</button>
+        </div>
+    </div>
+
+    <script>
+        // --- منطق التثبيت (PWA) ---
+        let deferredPrompt;
+        const installBtn = document.getElementById('install-btn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installBtn.style.display = 'block';
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    installBtn.style.display = 'none';
+                }
+                deferredPrompt = null;
+            }
+        });
+
+        // --- إعدادات اللعبة السهلة ---
+        let gravity = 0.08; 
+        let bounce = -4.5;    
+        let score = 0;
+        let velY = 0, velX = 0, posX = 0, posY = 0, rotation = 0;
+        let gameActive = false, firstTouch = false;
+
+        const ball = document.getElementById('ball');
+        const shadow = document.getElementById('shadow');
+        const overlay = document.getElementById('overlay');
+
+        function prepareGame() {
+            overlay.style.display = 'none';
+            score = 0; velY = 0; velX = 0;
+            posX = window.innerWidth / 2 - 55;
+            posY = 300; 
+            renderBall();
+            gameActive = true;
+            firstTouch = false;
+            document.getElementById('score-display').innerText = 0;
+        }
+
+        function renderBall() {
+            ball.style.left = posX + 'px';
+            ball.style.bottom = posY + 'px';
+            ball.style.transform = `rotate(${rotation}deg)`;
+            shadow.style.left = (posX + 55) + 'px';
+            shadow.style.opacity = 1 - (posY / 500);
+        }
+
+        function update() {
+            if (!gameActive || !firstTouch) return;
+            velY += gravity;
+            posY -= velY;
+            posX += velX;
+            rotation += velX;
+            if (posX <= 0 || posX >= window.innerWidth - 110) {
+                velX *= -0.5;
+                posX = posX <= 0 ? 5 : window.innerWidth - 115;
+            }
+            if (posY <= 0) {
+                posY = 0; renderBall();
+                gameActive = false;
+                document.getElementById('title').innerText = "حاول مرة أخرى! ❤️";
+                overlay.style.display = 'flex';
+                return;
+            }
+            renderBall();
+            requestAnimationFrame(update);
+        }
+
+        function handleAction(e) {
+            if (!gameActive) return;
+            if (!firstTouch) { firstTouch = true; requestAnimationFrame(update); }
+            const rect = ball.getBoundingClientRect();
+            const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+            velY = bounce; 
+            velX = ((rect.left + rect.width / 2) - clientX) / 15;
+            score++;
+            document.getElementById('score-display').innerText = score;
+            createHitEffect(clientX, e.clientY || (e.touches ? e.touches[0].clientY : 0));
+        }
+
+        function createHitEffect(x, y) {
+            const effect = document.createElement('div');
+            effect.className = 'hit-effect';
+            effect.innerText = '⭐';
+            effect.style.left = x + 'px';
+            effect.style.top = y + 'px';
+            document.body.appendChild(effect);
+            setTimeout(() => effect.remove(), 800);
+        }
+
+        ball.addEventListener('touchstart', (e) => { e.preventDefault(); handleAction(e); });
+        ball.addEventListener('mousedown', handleAction);
+    </script>
+</body>
+</html>
